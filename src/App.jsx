@@ -5,6 +5,84 @@ import { useState, useCallback } from "react";
 // Gmail + ClickUp + Claude AI en temps réel
 // ============================================================
 
+// ---- COMPTES AUTORISÉS ----
+const COMPTES = [
+  // SUPER ADMIN — accès total + gestion utilisateurs
+  { login:"hassan",   mdp:"hassan2026", nom:"Hassan Anoud",    role:"super_admin",  acces:["dashboard","emails","taches","analyse","paiements","sinistres"] },
+
+  // ADMIN — accès complet
+  { login:"mohamed",  mdp:"mpa2026",    nom:"Mohamed Abbou",   role:"admin",        acces:["dashboard","emails","taches","analyse","paiements","sinistres"] },
+
+  // GESTION ADMINISTRATIVE — accès total
+  { login:"maryam",   mdp:"maryam2026", nom:"Maryam Itoukyn",  role:"administratif",acces:["dashboard","emails","taches","analyse","paiements","sinistres"] },
+
+  // ACCUEIL & VENTE — accès partiel
+  { login:"hamza",    mdp:"hamza2026",  nom:"Hamza Abbou",     role:"accueil",      acces:["dashboard","taches","sinistres"] },
+
+  // RESPONSABLE PIÈCES — accès tâches + sinistres
+  { login:"rachid",   mdp:"rachid2026", nom:"Rachid Anoud",    role:"responsable",  acces:["dashboard","taches"] },
+
+  // ASSISTANTE — accès limité
+  { login:"manal",    mdp:"manal2026",  nom:"Manal",           role:"assistante",   acces:["dashboard","emails","taches"] },
+];
+
+// ---- PAGE LOGIN ----
+function PageLogin({ onLogin }) {
+  const [login, setLogin]   = useState("");
+  const [mdp, setMdp]       = useState("");
+  const [erreur, setErreur] = useState("");
+  const [voir, setVoir]     = useState(false);
+
+  const connexion = () => {
+    const compte = COMPTES.find(c => c.login === login.toLowerCase().trim() && c.mdp === mdp);
+    if (compte) { onLogin(compte); }
+    else { setErreur("Identifiants incorrects"); setTimeout(()=>setErreur(""),3000); }
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#0A0A0A", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans',sans-serif" }}>
+      <div style={{ width:"100%", maxWidth:400, padding:24 }}>
+        <div style={{ textAlign:"center", marginBottom:36 }}>
+          <div style={{ width:64, height:64, borderRadius:18, background:"linear-gradient(135deg,#FF6B35,#F59E0B)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, margin:"0 auto 14px" }}>⚙️</div>
+          <div style={{ fontWeight:800, fontSize:22, color:"#fff" }}>GARAGE MPA</div>
+          <div style={{ fontSize:13, color:"#4B5563", marginTop:4 }}>Back Office — Accès sécurisé</div>
+        </div>
+
+        <div style={{ background:"#141414", border:"1px solid #1F2937", borderRadius:18, padding:28 }}>
+          <div style={{ marginBottom:16 }}>
+            <label style={{ fontSize:12, fontWeight:600, color:"#6B7280", display:"block", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.05em" }}>Identifiant</label>
+            <input value={login} onChange={e=>setLogin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&connexion()}
+              placeholder="maryam, mohamed..."
+              style={{ width:"100%", padding:"13px 16px", border:"1.5px solid #2A2A2A", borderRadius:10, fontSize:14, background:"#1F1F1F", color:"#fff", fontFamily:"inherit", outline:"none", boxSizing:"border-box" }}/>
+          </div>
+          <div style={{ marginBottom:20 }}>
+            <label style={{ fontSize:12, fontWeight:600, color:"#6B7280", display:"block", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.05em" }}>Mot de passe</label>
+            <div style={{ position:"relative" }}>
+              <input value={mdp} onChange={e=>setMdp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&connexion()}
+                type={voir?"text":"password"} placeholder="••••••••"
+                style={{ width:"100%", padding:"13px 48px 13px 16px", border:"1.5px solid #2A2A2A", borderRadius:10, fontSize:14, background:"#1F1F1F", color:"#fff", fontFamily:"inherit", outline:"none", boxSizing:"border-box" }}/>
+              <button onClick={()=>setVoir(!voir)} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#4B5563", cursor:"pointer", fontSize:16 }}>
+                {voir?"🙈":"👁️"}
+              </button>
+            </div>
+          </div>
+
+          {erreur && <div style={{ background:"#FEF2F2", border:"1px solid #FECACA", borderRadius:8, padding:"10px 14px", marginBottom:16, fontSize:13, color:"#DC2626", textAlign:"center" }}>⚠️ {erreur}</div>}
+
+          <button onClick={connexion}
+            style={{ width:"100%", background:"linear-gradient(135deg,#FF6B35,#F59E0B)", color:"#fff", border:"none", borderRadius:11, padding:"14px", fontWeight:800, fontSize:15, cursor:"pointer", fontFamily:"inherit" }}>
+            🔐 Se connecter
+          </button>
+        </div>
+
+        <div style={{ textAlign:"center", marginTop:20, fontSize:11, color:"#374151" }}>
+          Accès réservé au personnel autorisé du Garage MPA
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const MCP_SERVERS = [
   { type: "url", url: "https://gmailmcp.googleapis.com/mcp/v1", name: "gmail-mcp" },
   { type: "url", url: "https://mcp.clickup.com/mcp", name: "clickup-mcp" },
@@ -642,11 +720,21 @@ function Sinistres() {
 // APP PRINCIPALE
 // ============================================================
 export default function App() {
+  const [user, setUser]     = useState(null);
   const [active, setActive] = useState("dashboard");
   const [stats, setStats]   = useState(null);
   const { callClaude }      = useClaudeAPI();
 
+  // Modules filtrés selon les droits
+  const modulesAccessibles = MODULES.filter(m => user?.acces?.includes(m.id));
+
   const renderModule = () => {
+    if (!user?.acces?.includes(active)) return (
+      <div style={{ textAlign:"center", padding:60 }}>
+        <div style={{ fontSize:40, marginBottom:12 }}>🔒</div>
+        <div style={{ fontWeight:700, fontSize:16 }}>Accès non autorisé</div>
+      </div>
+    );
     switch(active) {
       case "dashboard": return <Dashboard callClaude={callClaude} stats={stats} setStats={setStats}/>;
       case "emails":    return <Emails callClaude={callClaude}/>;
@@ -657,6 +745,15 @@ export default function App() {
       default:          return <Dashboard callClaude={callClaude} stats={stats} setStats={setStats}/>;
     }
   };
+
+  if (!user) return (
+    <>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0;}`}</style>
+      <PageLogin onLogin={u => { setUser(u); setActive(u.acces[0]); }}/>
+    </>
+  );
+
+  const roleColors = { super_admin:"#EF4444", admin:"#FF6B35", administratif:"#8B5CF6", accueil:"#3B82F6", responsable:"#10B981", assistante:"#F59E0B" };
 
   return (
     <>
@@ -676,8 +773,22 @@ export default function App() {
             <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:14, color:"#fff" }}>⚙️ GARAGE MPA</div>
             <div style={{ fontSize:11, color:"#4B5563", marginTop:3 }}>Back Office</div>
           </div>
+
+          {/* Profil utilisateur */}
+          <div style={{ padding:"12px 16px", borderBottom:"1px solid #1A1A1A", display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ width:34, height:34, borderRadius:"50%", background:roleColors[user.role]||"#FF6B35", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:800, fontSize:14, flexShrink:0 }}>
+              {user.nom[0]}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:"#fff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.nom}</div>
+              <div style={{ fontSize:10, color:"#4B5563", textTransform:"capitalize" }}>{user.role}</div>
+            </div>
+            <button onClick={()=>setUser(null)} title="Déconnexion"
+              style={{ background:"none", border:"none", color:"#4B5563", cursor:"pointer", fontSize:14, padding:4 }}>🚪</button>
+          </div>
+
           <nav style={{ flex:1, padding:"10px 8px" }}>
-            {MODULES.map(m => (
+            {modulesAccessibles.map(m => (
               <button key={m.id} onClick={()=>setActive(m.id)} style={{
                 width:"100%", display:"flex", alignItems:"center", gap:10,
                 padding:"9px 12px", marginBottom:2,
